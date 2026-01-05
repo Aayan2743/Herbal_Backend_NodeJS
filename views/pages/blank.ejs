@@ -1,0 +1,63 @@
+
+<%- include('../header') %>
+<div class="container-scroller">
+      <!-- partial:../../partials/_navbar.html -->
+      <%- include('../nav') %>
+      <!-- partial -->
+      <div class="container-fluid page-body-wrapper">
+        <!-- partial:../../partials/_sidebar.html -->
+          <%- include('../sidebar') %>
+        <!-- partial -->
+        <div class="main-panel">
+          <div class="content-wrapper">
+
+              <div class="card">
+                  <div class="card-body">
+                    <h4 class="card-title">Horizontal Form</h4>
+                    <p class="card-description"> Horizontal form layout </p>
+
+                 
+
+
+                    <form class="forms-sample" method="POST" action="/web/add-User">
+                      <div class="form-group row">
+                        <label for="exampleInputUsername2" class="col-sm-3 col-form-label">Name</label>
+                        <div class="col-sm-9">
+                           <input 
+  type="text" 
+  class="form-control <%= (errors && errors.username) ? 'is-invalid' : '' %>" 
+  name="username"
+  placeholder="Username"
+  value="<%= (old && old.username) ? old.username : '' %>"
+>
+
+<% if (errors && errors.username) { %>
+  <p class="text-danger"><%= errors.username %></p>
+<% } %>
+                        </div>
+                      </div>
+
+                       <div class="form-group row">
+                        <label for="exampleInputUsername2" class="col-sm-3 col-form-label">Age</label>
+                        <div class="col-sm-9">
+                          <input type="number" class="form-control" id="exampleInputUsername2" name="userage" placeholder="Age">
+                        </div>
+                      </div>
+                     
+                      <button type="submit" class="btn btn-gradient-primary me-2">Submit</button>
+                      <button class="btn btn-light">Cancel</button>
+                    </form>
+                  </div>
+                </div>
+          </div>
+          <!-- content-wrapper ends -->
+          <!-- partial:../../partials/_footer.html -->
+          <%- include('../footercontent') %>
+          <!-- partial -->
+        </div>
+        <!-- main-panel ends -->
+      </div>
+      <!-- page-body-wrapper ends -->
+</div>
+    
+<%- include('../footer') %>
