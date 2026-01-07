@@ -6,7 +6,7 @@ const Category = sequelize.define(
   "Category",
   {
     id: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.BIGINT.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
     },
@@ -19,7 +19,7 @@ const Category = sequelize.define(
     slug: {
       type: DataTypes.STRING,
       allowNull: false,
-    //   unique: true,
+      //   unique: true,
     },
 
     image: {

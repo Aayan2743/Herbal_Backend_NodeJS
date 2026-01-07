@@ -19,7 +19,24 @@ import ProductVariationValue from "./ProductVariationValue.js";
 import ProductVariantCombination from "./ProductVariantCombination.js";
 import ProductVariantCombinationValue from "./ProductVariantCombinationValue.js";
 import ProductVariantImage from "./ProductVariantImage.js";
+import PosOrderItem from "./PosOrderItem.js";
+import PosOrder from "./PosOrder.js";
 
+PosOrder.hasMany(PosOrderItem, {
+  foreignKey: "pos_order_id",
+  as: "items",
+});
+
+// EACH ITEM → ONE ORDER
+PosOrderItem.belongsTo(PosOrder, {
+  foreignKey: "pos_order_id",
+  as: "order",
+});
+
+PosOrderItem.belongsTo(Product, {
+  foreignKey: "product_id",
+  as: "product",
+});
 /* =====================================================
    CATEGORY & BRAND
 ===================================================== */
@@ -152,4 +169,6 @@ export {
   ProductVariantCombination,
   ProductVariantCombinationValue,
   ProductVariantImage,
+  PosOrderItem,
+  PosOrder,
 };

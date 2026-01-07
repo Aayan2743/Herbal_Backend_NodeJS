@@ -12,7 +12,11 @@ const ProductVariationValue = sequelize.define(
       primaryKey: true,
     },
 
-    variation_id: DataTypes.INTEGER.UNSIGNED,
+    // variation_id: DataTypes.INTEGER.UNSIGNED,
+    variation_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: false,
+    },
     value: DataTypes.STRING,
     color_code: DataTypes.STRING,
   },

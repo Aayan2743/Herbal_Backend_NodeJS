@@ -25,7 +25,6 @@ app.use(express.json()); // 🔥 THIS FIXES YOUR ISSUE
 app.use(express.urlencoded({ extended: false }));
 app.use("/uploads", express.static("public/uploads"));
 
-
 // DB
 sequelize
   .authenticate()

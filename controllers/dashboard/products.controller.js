@@ -367,26 +367,202 @@ export const updateVariant = async (req, res) => {
   }
 };
 
+// export const syncVariations = async (req, res) => {
+//   try {
+//     const { productId } = req.params;
+//     const variants = req.body.variants || {};
+
+//     console.log("variants", variants);
+
+//     // Normalize FormData variants
+//     const variantList = Array.isArray(variants)
+//       ? variants
+//       : Object.values(variants);
+
+//     console.log(
+//       "FILES RECEIVED:",
+//       req.files?.map((f) => f.fieldname)
+//     );
+
+//     for (let i = 0; i < variantList.length; i++) {
+//       const v = variantList[i];
+//       console.log("vvvv", v?.id);
+
+//       /* ================= CREATE / UPDATE VARIANT ================= */
+
+//       let variant;
+//       if (v.id) {
+//         variant = await ProductVariantCombination.findByPk(v.id);
+//         if (!variant) continue;
+
+//         await variant.update({
+//           sku: v.sku || null,
+//           extra_price: v.extra_price || 0,
+//           quantity: v.quantity || 0,
+//           low_quantity: v.low_quantity || 0,
+//         });
+//       } else {
+//         variant = await ProductVariantCombination.create({
+//           product_id: productId,
+//           sku: v.sku || null,
+//           extra_price: v.extra_price || 0,
+//           quantity: v.quantity || 0,
+//           low_quantity: v.low_quantity || 0,
+//         });
+//       }
+
+//       const variantId = variant.id;
+
+//       /* ================= SYNC VARIATION VALUES ================= */
+
+//       let valueIds = [];
+
+//       if (Array.isArray(v.variation_value_ids)) {
+//         valueIds = v.variation_value_ids;
+//       } else if (typeof v.variation_value_ids === "string") {
+//         try {
+//           valueIds = JSON.parse(v.variation_value_ids);
+//         } catch {
+//           valueIds = [];
+//         }
+//       }
+
+//       valueIds = valueIds
+//         .map(Number)
+//         .filter((id) => Number.isInteger(id) && id > 0);
+
+//       await ProductVariantCombinationValue.destroy({
+//         where: { variant_combination_id: variantId },
+//       });
+
+//       for (const valueId of valueIds) {
+//         await ProductVariantCombinationValue.create({
+//           variant_combination_id: variantId,
+//           variation_value_id: valueId,
+//         });
+//       }
+
+//       /* ================= SYNC IMAGES ================= */
+
+//       const keepIds = v.keep_image_ids
+//         ? Array.isArray(v.keep_image_ids)
+//           ? v.keep_image_ids.map(String)
+//           : [String(v.keep_image_ids)]
+//         : [];
+
+//       const existingImages = await ProductVariantImage.findAll({
+//         where: { variant_combination_id: variantId },
+//       });
+
+//       // Delete removed images
+//       for (const img of existingImages) {
+//         // ONLY delete if keep_image_ids is provided
+
+//         console.log("DFsdfsdf", existingImages);
+//         if (v.keep_image_ids) {
+//           const keepIds = Array.isArray(v.keep_image_ids)
+//             ? v.keep_image_ids.map(String)
+//             : [String(v.keep_image_ids)];
+
+//           const existingImages = await ProductVariantImage.findAll({
+//             where: { variant_combination_id: variantId },
+//           });
+
+//           for (const img of existingImages) {
+//             if (!keepIds.includes(String(img.id))) {
+//               const imgPath = path.join(
+//                 process.cwd(),
+//                 "public",
+//                 "uploads",
+//                 "variants",
+//                 img.image_path
+//               );
+
+//               if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+//               await img.destroy();
+//             }
+//           }
+//         }
+
+//         /* ================= SYNC IMAGES ================= */
+
+//         // 🔒 DELETE ONLY IF keep_image_ids IS SENT
+//         // if (v.keep_image_ids) {
+//         //   const keepIds = Array.isArray(v.keep_image_ids)
+//         //     ? v.keep_image_ids.map(String)
+//         //     : [String(v.keep_image_ids)];
+
+//         //   const existingImages = await ProductVariantImage.findAll({
+//         //     where: { variant_combination_id: variantId },
+//         //   });
+
+//         //   for (const img of existingImages) {
+//         //     if (!keepIds.includes(String(img.id))) {
+//         //       const imgPath = path.join(
+//         //         process.cwd(),
+//         //         "public",
+//         //         "uploads",
+//         //         "variants",
+//         //         img.image_path
+//         //       );
+
+//         //       console.log("🗑️ Deleting image:", img.image_path);
+
+//         //       if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+//         //       await img.destroy();
+//         //     }
+//         //   }
+//         // }
+//       }
+
+//       // Add new images (🔥 FIXED FIELDNAME)
+//       console.log("req", req.files);
+//       const uploadedImages = Array.isArray(req.files)
+//         ? req.files.filter((f) =>
+//             f.fieldname.startsWith(`variants[${i}][images]`)
+//           )
+//         : [];
+
+//       console.log(
+//         `Variant ${i} (${variantId}) image count:`,
+//         uploadedImages.length
+//       );
+
+//       // console.log("vvvvvsssss", variantId, file.filename)
+
+//       for (const file of uploadedImages) {
+//         console.log("vvvvvsssss", variantId, file.filename);
+//         await ProductVariantImage.create({
+//           variant_combination_id: variantId,
+//           image_path: file.filename, // store filename only
+//         });
+//       }
+//     }
+
+//     return res.json({
+//       status: true,
+//       message: "Variants synced successfully",
+//     });
+//   } catch (err) {
+//     console.error("SYNC VARIATIONS ERROR:", err);
+//     return res.status(500).json({
+//       status: false,
+//       message: "Server error",
+//     });
+//   }
+// };
+
 export const syncVariations = async (req, res) => {
   try {
     const { productId } = req.params;
     const variants = req.body.variants || {};
 
-    console.log("variants", variants);
-
-    // Normalize FormData variants
     const variantList = Array.isArray(variants)
       ? variants
       : Object.values(variants);
 
-    console.log(
-      "FILES RECEIVED:",
-      req.files?.map((f) => f.fieldname)
-    );
-
     for (let i = 0; i < variantList.length; i++) {
       const v = variantList[i];
-      console.log("vvvv", v?.id);
 
       /* ================= CREATE / UPDATE VARIANT ================= */
 
@@ -416,20 +592,17 @@ export const syncVariations = async (req, res) => {
       /* ================= SYNC VARIATION VALUES ================= */
 
       let valueIds = [];
-
-      if (Array.isArray(v.variation_value_ids)) {
-        valueIds = v.variation_value_ids;
-      } else if (typeof v.variation_value_ids === "string") {
+      if (typeof v.variation_value_ids === "string") {
         try {
           valueIds = JSON.parse(v.variation_value_ids);
         } catch {
           valueIds = [];
         }
+      } else if (Array.isArray(v.variation_value_ids)) {
+        valueIds = v.variation_value_ids;
       }
 
-      valueIds = valueIds
-        .map(Number)
-        .filter((id) => Number.isInteger(id) && id > 0);
+      valueIds = valueIds.map(Number).filter(Boolean);
 
       await ProductVariantCombinationValue.destroy({
         where: { variant_combination_id: variantId },
@@ -442,99 +615,55 @@ export const syncVariations = async (req, res) => {
         });
       }
 
-      /* ================= SYNC IMAGES ================= */
+      /* ================= IMAGE DELETE LOGIC (FIXED) ================= */
 
-      const keepIds = v.keep_image_ids
-        ? Array.isArray(v.keep_image_ids)
-          ? v.keep_image_ids.map(String)
-          : [String(v.keep_image_ids)]
-        : [];
+      let keepIds = null;
 
-      const existingImages = await ProductVariantImage.findAll({
-        where: { variant_combination_id: variantId },
-      });
-
-      // Delete removed images
-      for (const img of existingImages) {
-        // ONLY delete if keep_image_ids is provided
-
-        console.log("DFsdfsdf", existingImages);
-        if (v.keep_image_ids) {
-          const keepIds = Array.isArray(v.keep_image_ids)
-            ? v.keep_image_ids.map(String)
-            : [String(v.keep_image_ids)];
-
-          const existingImages = await ProductVariantImage.findAll({
-            where: { variant_combination_id: variantId },
-          });
-
-          for (const img of existingImages) {
-            if (!keepIds.includes(String(img.id))) {
-              const imgPath = path.join(
-                process.cwd(),
-                "public",
-                "uploads",
-                "variants",
-                img.image_path
-              );
-
-              if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-              await img.destroy();
-            }
-          }
+      if ("keep_image_ids" in v) {
+        if (Array.isArray(v.keep_image_ids)) {
+          keepIds = v.keep_image_ids
+            .map(String)
+            .filter((id) => id && id !== "undefined" && id !== "null");
+        } else if (v.keep_image_ids === "") {
+          keepIds = []; // 🔥 delete all
+        } else {
+          keepIds = [String(v.keep_image_ids)];
         }
-
-        /* ================= SYNC IMAGES ================= */
-
-        // 🔒 DELETE ONLY IF keep_image_ids IS SENT
-        // if (v.keep_image_ids) {
-        //   const keepIds = Array.isArray(v.keep_image_ids)
-        //     ? v.keep_image_ids.map(String)
-        //     : [String(v.keep_image_ids)];
-
-        //   const existingImages = await ProductVariantImage.findAll({
-        //     where: { variant_combination_id: variantId },
-        //   });
-
-        //   for (const img of existingImages) {
-        //     if (!keepIds.includes(String(img.id))) {
-        //       const imgPath = path.join(
-        //         process.cwd(),
-        //         "public",
-        //         "uploads",
-        //         "variants",
-        //         img.image_path
-        //       );
-
-        //       console.log("🗑️ Deleting image:", img.image_path);
-
-        //       if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-        //       await img.destroy();
-        //     }
-        //   }
-        // }
       }
 
-      // Add new images (🔥 FIXED FIELDNAME)
-      console.log("req", req.files);
+      if (keepIds !== null) {
+        const existingImages = await ProductVariantImage.findAll({
+          where: { variant_combination_id: variantId },
+        });
+
+        for (const img of existingImages) {
+          if (!keepIds.includes(String(img.id))) {
+            const imgPath = path.join(
+              process.cwd(),
+              "public",
+              "uploads",
+              "variants",
+              img.image_path
+            );
+
+            if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+            await img.destroy();
+          }
+        }
+      }
+
+      /* ================= ADD NEW IMAGES ================= */
+
       const uploadedImages = Array.isArray(req.files)
         ? req.files.filter((f) =>
             f.fieldname.startsWith(`variants[${i}][images]`)
           )
         : [];
 
-      console.log(
-        `Variant ${i} (${variantId}) image count:`,
-        uploadedImages.length
-      );
-
-      // console.log("vvvvvsssss", variantId, file.filename)
-
       for (const file of uploadedImages) {
-        console.log("vvvvvsssss", variantId, file.filename);
         await ProductVariantImage.create({
           variant_combination_id: variantId,
-          image_path: file.filename, // store filename only
+          image_path: file.filename,
         });
       }
     }
@@ -603,68 +732,80 @@ export const updateProductTax = async (req, res) => {
   try {
     const { productId } = req.params;
 
-    let {
+    const {
       gst_enabled,
       gst_type,
       gst_percent,
       affinity_enabled,
       affinity_percent,
+      status, // 👈 publish / draft
     } = req.body;
 
-    // 🔥 Normalize booleans → tinyint
-    gst_enabled = gst_enabled ? 1 : 0;
-    affinity_enabled = affinity_enabled ? 1 : 0;
+    /* ================= UPDATE PRODUCT STATUS ================= */
+    await Product.update(
+      { status }, // "draft" | "published"
+      { where: { id: productId } }
+    );
 
-    // 🔥 Validate gst_type
-    if (!["inclusive", "exclusive"].includes(gst_type)) {
-      gst_type = "exclusive";
-    }
-
-    // 🔥 Reset percent when disabled
-    gst_percent = gst_enabled ? Number(gst_percent || 0) : 0;
-    affinity_percent = affinity_enabled ? Number(affinity_percent || 0) : 0;
-
-    const [tax] = await ProductTaxAffinity.findOrCreate({
+    /* ================= UPDATE / CREATE TAX ================= */
+    const [tax, created] = await ProductTaxAffinity.findOrCreate({
       where: { product_id: productId },
       defaults: {
-        gst_enabled: 0,
-        gst_type: "exclusive",
-        gst_percent: 0,
-        affinity_enabled: 0,
-        affinity_percent: 0,
+        gst_enabled,
+        gst_type,
+        gst_percent,
+        affinity_enabled,
+        affinity_percent,
       },
     });
 
-    await tax.update({
-      gst_enabled,
-      gst_type,
-      gst_percent,
-      affinity_enabled,
-      affinity_percent,
-    });
+    if (!created) {
+      await tax.update({
+        gst_enabled,
+        gst_type,
+        gst_percent,
+        affinity_enabled,
+        affinity_percent,
+      });
+    }
 
     return res.json({
       status: true,
-      message: "Tax updated successfully",
+      message: "Product tax & status updated successfully",
     });
   } catch (err) {
-    console.error("TAX UPDATE ERROR:", err);
-    return res.status(500).json({
+    console.error(err);
+    res.status(500).json({
       status: false,
-      message: "Server error",
+      message: "Failed to update product tax",
     });
   }
+};
+
+const applyTax = (price, tax) => {
+  if (!tax?.gst_enabled) return price;
+
+  const percent = Number(tax.gst_percent || 0);
+
+  // ✅ YOUR FORMULA
+  if (tax.gst_type === "exclusive") {
+    return price * (1 + percent / 100);
+  }
+
+  // inclusive → price already includes tax
+  return price;
 };
 
 export const getPOSProducts = async (req, res) => {
   try {
     const { category = "all", brand = "all" } = req.query;
 
-    const where = {};
-
+    /* ================= FILTER ================= */
+    const where = { status: "published" };
     if (category !== "all") where.category_id = category;
     if (brand !== "all") where.brand_id = brand;
 
+    /* ================= FETCH ================= */
     const products = await Product.findAll({
       where,
       attributes: ["id", "name", "base_price", "discount"],
@@ -679,33 +820,150 @@ export const getPOSProducts = async (req, res) => {
           as: "brand",
           attributes: ["id", "name"],
         },
+
+        /* ✅ ALL PRODUCT IMAGES */
         {
           model: ProductImage,
           as: "gallery",
-          where: { is_primary: true },
           required: false,
-          attributes: ["image_path"],
+          attributes: ["image_path", "is_primary"],
+        },
+
+        /* ✅ PRODUCT VIDEO */
+        {
+          model: ProductVideo,
+          as: "video",
+          required: false,
+          attributes: ["video_url"],
+        },
+
+        /* ================= TAX ================= */
+        {
+          model: ProductTaxAffinity,
+          as: "product_tax",
+          required: false,
+          attributes: ["gst_enabled", "gst_type", "gst_percent"],
+        },
+
+        /* ================= VARIANTS ================= */
+        {
+          model: ProductVariantCombination,
+          as: "variantCombinations",
+          required: true,
+          attributes: ["id", "sku", "extra_price", "quantity"],
+          include: [
+            {
+              model: ProductVariantCombinationValue,
+              as: "combination_values",
+              attributes: ["variation_value_id"],
+              include: [
+                {
+                  model: ProductVariationValue,
+                  as: "value",
+                  attributes: ["id", "value"],
+                },
+              ],
+            },
+
+            /* ✅ ALL VARIANT IMAGES */
+            {
+              model: ProductVariantImage,
+              as: "images",
+              required: false,
+              attributes: ["image_path"],
+            },
+          ],
         },
       ],
     });
 
-    const data = products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      price: Number(p.base_price) - Number(p.discount || 0),
-      category: p.category?.id,
-      brand: p.brand?.id,
-      image: p.gallery?.[0]
-        ? `${req.protocol}://${req.get("host")}/uploads/products/${
-            p.gallery[0].image_path
-          }`
-        : null,
-    }));
+    /* ================= FORMAT FOR POS ================= */
+    const data = products
+      .map((p) => {
+        const basePrice = Number(p.base_price) - Number(p.discount || 0);
 
-    res.json({ status: true, data });
+        const tax = p.product_tax?.[0] || null;
+        const finalBasePrice = applyTax(basePrice, tax);
+
+        /* ===== PRODUCT MEDIA ===== */
+        const productImages =
+          p.gallery?.map((img) => ({
+            image_url: `${req.protocol}://${req.get("host")}/uploads/products/${
+              img.image_path
+            }`,
+            is_primary: img.is_primary,
+          })) || [];
+
+        const productVideo = p.video
+          ? {
+              video_url: p.video.video_url,
+            }
+          : null;
+
+        /* ===== VARIATIONS ===== */
+        const variationsMap = new Map();
+
+        p.variantCombinations.forEach((vc) => {
+          if (vc.quantity <= 0) return;
+
+          const variantBase = basePrice + Number(vc.extra_price || 0);
+
+          const finalVariantPrice = applyTax(variantBase, tax);
+
+          variationsMap.set(vc.id, {
+            id: vc.id,
+            sku: vc.sku,
+            name: vc.combination_values
+              ?.map((cv) => cv.value?.value)
+              .join(" / "),
+            price: Number(finalVariantPrice.toFixed(2)),
+            stock: vc.quantity,
+
+            /* ✅ VARIANT MEDIA */
+            images:
+              vc.images?.map((img) => ({
+                image_url: `${req.protocol}://${req.get(
+                  "host"
+                )}/uploads/variants/${img.image_path}`,
+              })) || [],
+          });
+        });
+
+        if (variationsMap.size === 0) return null;
+
+        return {
+          id: p.id,
+          name: p.name,
+          price: Number(finalBasePrice.toFixed(2)),
+          gst: tax
+            ? {
+                enabled: tax.gst_enabled,
+                type: tax.gst_type,
+                percent: Number(tax.gst_percent),
+              }
+            : null,
+
+          /* ✅ ALL PRODUCT MEDIA */
+          images: productImages,
+          video: productVideo,
+
+          /* convenience thumbnail */
+          image:
+            productImages.find((i) => i.is_primary)?.image_url ||
+            productImages[0]?.image_url ||
+            null,
+
+          variations: Array.from(variationsMap.values()),
+          category: p.category?.id,
+          brand: p.brand?.id,
+        };
+      })
+      .filter(Boolean);
+
+    return res.json({ status: true, data });
   } catch (err) {
     console.error("POS PRODUCTS ERROR:", err);
-    res.status(500).json({
+    return res.status(500).json({
       status: false,
       message: "Server error",
     });

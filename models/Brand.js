@@ -7,7 +7,7 @@ const Brand = sequelize.define(
   "Brand",
   {
     id: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.BIGINT.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
     },
@@ -20,7 +20,7 @@ const Brand = sequelize.define(
     slug: {
       type: DataTypes.STRING,
       allowNull: false,
-    //   unique: true, // ✅ recommended
+      //   unique: true, // ✅ recommended
     },
 
     image: {
