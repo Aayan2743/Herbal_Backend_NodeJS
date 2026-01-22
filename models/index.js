@@ -33,9 +33,16 @@ import Wishlist from "./Wishlist.js";
 User.hasMany(Wishlist, { foreignKey: "user_id", onDelete: "CASCADE" });
 Wishlist.belongsTo(User, { foreignKey: "user_id" });
 
-// Product → Wishlist
-Product.hasMany(Wishlist, { foreignKey: "product_id", onDelete: "CASCADE" });
-Wishlist.belongsTo(Product, { foreignKey: "product_id" });
+Product.hasMany(Wishlist, {
+  foreignKey: "product_id",
+  as: "wishlists",
+  onDelete: "CASCADE",
+});
+
+Wishlist.belongsTo(Product, {
+  foreignKey: "product_id",
+  as: "product", // ✅ THIS
+});
 
 Order.hasMany(OrderItem, {
   foreignKey: "order_id",

@@ -2,6 +2,9 @@
 
 import Wishlist from "../../models/Wishlist.js";
 import Product from "../../models/Product.js";
+import ProductImage from "../../models/ProductImage.js";
+import { getImageUrl } from "../../utils/getFullUrl.js";
+// import { getImageUrl } from "../utils/urlHelper.js";
 
 export const toggleWishlist = async (req, res) => {
   try {
@@ -37,30 +40,64 @@ export const toggleWishlist = async (req, res) => {
   }
 };
 
+
+
 export const getWishlist = async (req, res) => {
   try {
     const userId = req.users.id;
-
-    console.log("user id", userId);
 
     const items = await Wishlist.findAll({
       where: { user_id: userId },
       include: [
         {
           model: Product,
-          attributes: ["id", "name", "price", "image", "slug"],
+          as: "product",
+          attributes: ["id", "name", "base_price", "slug"],
+          include: [
+            {
+              model: ProductImage,
+              as: "gallery",
+              attributes: ["image_path", "is_primary"],
+              order: [["is_primary", "DESC"]],
+              limit: 1,
+            },
+          ],
         },
       ],
     });
 
+    const data = items.map((item) => {
+      const product = item.product;
+      const imagePath = product.gallery?.[0]?.image_path;
+
+      // image_path = "products/18/img1.webp"
+      let image = null;
+
+      if (imagePath) {
+        const parts = imagePath.split("/");
+        const folder = parts.slice(0, -1).join("/"); // products/18
+        const filename = parts.at(-1); // img1.webp
+
+        image = getImageUrl(req, folder, filename);
+      }
+
+      return {
+        id: product.id,
+        name: product.name,
+        price: Number(product.base_price),
+        slug: product.slug,
+        image,
+      };
+    });
+
     return res.json({
       status: true,
-      data: items.map((item) => item.Product),
+      data,
     });
-  } catch (err) {
+  } catch (error) {
     return res.status(500).json({
       status: false,
-      message: "Failed to fetch wishlist",
+      message: error.message || "Failed to fetch wishlist",
     });
   }
 };
