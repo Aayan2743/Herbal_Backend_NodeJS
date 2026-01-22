@@ -3,10 +3,12 @@ import Product from "../../models/Product.js";
 import fs from "fs";
 import Category from "../../models/Category.js";
 
+import { Op, Sequelize } from "sequelize";
+
 import Brand from "../../models/Brand.js";
 import ProductImage from "../../models/ProductImage.js";
 import ProductVariation from "../../models/ProductVariation.js";
-import { Op } from "sequelize";
+
 import path from "path";
 import { getImageUrl } from "../../utils/getFullUrl.js";
 import ProductSeoMeta from "../../models/ProductSeoMeta.js";
@@ -17,7 +19,7 @@ import ProductVariantCombinationValue from "../../models/ProductVariantCombinati
 import ProductVariantCombination from "../../models/ProductVariantCombination.js";
 import ProductVariantImage from "../../models/ProductVariantImage.js";
 
-export const createProduct = async (req, res) => {
+export const createProduct_old = async (req, res) => {
   try {
     const { name, category_id, brand_id, base_price, discount, description } =
       req.body;
@@ -47,6 +49,59 @@ export const createProduct = async (req, res) => {
   }
 };
 
+const slugify = (text) =>
+  text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+export const createProduct = async (req, res) => {
+  try {
+    const { name, category_id, brand_id, base_price, discount, description } =
+      req.body;
+
+    /* 🔹 Generate base slug */
+    let baseSlug = slugify(name);
+    let slug = baseSlug;
+    let count = 1;
+    console.log("ssss", baseSlug);
+    /* 🔹 Ensure UNIQUE slug */
+    while (await Product.findOne({ where: { slug } })) {
+      slug = `${baseSlug}-${count}`;
+      count++;
+    }
+
+    /* 🔹 Create product */
+    const product = await Product.create({
+      name,
+      slug, // ✅ saved here
+      category_id,
+      brand_id,
+      base_price,
+      discount,
+      description,
+      status: "draft",
+    });
+
+    return res.status(201).json({
+      status: true,
+      message: "Product created",
+      data: {
+        product_id: product.id,
+        slug: product.slug, // ✅ return slug
+      },
+    });
+  } catch (error) {
+    console.error("CREATE PRODUCT ERROR:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Server error",
+    });
+  }
+};
+
 export const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -61,7 +116,7 @@ export const updateProduct = async (req, res) => {
       status,
     } = req.body;
 
-    // 1️⃣ Check product exists
+    /* 1️⃣ Check product exists */
     const product = await Product.findByPk(id);
 
     if (!product) {
@@ -71,30 +126,229 @@ export const updateProduct = async (req, res) => {
       });
     }
 
-    // 2️⃣ Update fields
+    let updatedSlug = product.slug;
+
+    /* 2️⃣ Update slug ONLY if name changed */
+    if (name && name !== product.name) {
+      let baseSlug = slugify(name);
+      let slug = baseSlug;
+      let count = 1;
+
+      while (
+        await Product.findOne({
+          where: {
+            slug,
+            id: { [Op.ne]: product.id },
+          },
+        })
+      ) {
+        slug = `${baseSlug}-${count++}`;
+      }
+
+      updatedSlug = slug;
+    }
+
+    /* 3️⃣ Update product */
     await product.update({
       name,
+      slug: updatedSlug,
       category_id,
       brand_id,
       base_price,
       discount,
       description,
-      status, // optional (draft / published)
+      status,
     });
 
-    // 3️⃣ Success response
-    res.status(200).json({
+    /* 4️⃣ Response */
+    return res.status(200).json({
       status: true,
       message: "Product updated successfully",
       data: {
         product_id: product.id,
+        slug: updatedSlug,
       },
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
+    console.error("UPDATE PRODUCT ERROR:", error);
+    return res.status(500).json({
       status: false,
-      error: error.message,
+      message: "Server error",
+    });
+  }
+};
+
+export const getProductBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!slug) {
+      return res.status(400).json({
+        status: false,
+        message: "Product slug is required",
+      });
+    }
+
+    /* ================= FETCH PRODUCT ================= */
+    const product = await Product.findOne({
+      where: {
+        slug,
+        status: "published",
+      },
+      attributes: [
+        "id",
+        "name",
+        "slug",
+        "base_price",
+        "discount",
+        "description",
+      ],
+      include: [
+        {
+          model: Category,
+          as: "category",
+          attributes: ["id", "name", "slug"],
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["id", "name"],
+        },
+
+        /* PRODUCT IMAGES */
+        {
+          model: ProductImage,
+          as: "gallery",
+          required: false,
+          attributes: ["image_path", "is_primary"],
+        },
+
+        /* PRODUCT VIDEO */
+        {
+          model: ProductVideo,
+          as: "video",
+          required: false,
+          attributes: ["video_url"],
+        },
+
+        /* TAX */
+        {
+          model: ProductTaxAffinity,
+          as: "product_tax",
+          required: false,
+          attributes: ["gst_enabled", "gst_type", "gst_percent"],
+        },
+
+        /* VARIANTS */
+        {
+          model: ProductVariantCombination,
+          as: "variantCombinations",
+          required: true,
+          attributes: ["id", "sku", "extra_price", "quantity"],
+          include: [
+            {
+              model: ProductVariantCombinationValue,
+              as: "combination_values",
+              include: [
+                {
+                  model: ProductVariationValue,
+                  as: "value",
+                  attributes: ["value"],
+                },
+              ],
+            },
+            {
+              model: ProductVariantImage,
+              as: "images",
+              required: false,
+              attributes: ["image_path"],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        status: false,
+        message: "Product not found",
+      });
+    }
+
+    /* ================= PRICE ================= */
+    const basePrice =
+      Number(product.base_price) - Number(product.discount || 0);
+    const tax = product.product_tax?.[0] || null;
+    const finalBasePrice = applyTax(basePrice, tax);
+
+    /* ================= IMAGES ================= */
+    const images =
+      product.gallery?.map((img) => ({
+        image_url: `${req.protocol}://${req.get("host")}/uploads/products/${
+          img.image_path
+        }`,
+        is_primary: img.is_primary,
+      })) || [];
+
+    /* ================= VARIATIONS ================= */
+    const variations = product.variantCombinations
+      .filter((vc) => vc.quantity > 0)
+      .map((vc) => {
+        const variantPrice = applyTax(
+          basePrice + Number(vc.extra_price || 0),
+          tax
+        );
+
+        return {
+          id: vc.id,
+          sku: vc.sku,
+          name: vc.combination_values?.map((cv) => cv.value?.value).join(" / "),
+          price: Number(variantPrice.toFixed(2)),
+          stock: vc.quantity,
+          images:
+            vc.images?.map((img) => ({
+              image_url: `${req.protocol}://${req.get(
+                "host"
+              )}/uploads/variants/${img.image_path}`,
+            })) || [],
+        };
+      });
+
+    /* ================= RESPONSE ================= */
+    return res.json({
+      status: true,
+      data: {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        description: product.description,
+        price: Number(finalBasePrice.toFixed(2)),
+        image:
+          images.find((i) => i.is_primary)?.image_url ||
+          images[0]?.image_url ||
+          null,
+        images,
+        variations,
+        category: product.category
+          ? {
+              id: product.category.id,
+              name: product.category.name,
+              slug: product.category.slug,
+            }
+          : null,
+        brand: product.brand
+          ? {
+              id: product.brand.id,
+              name: product.brand.name,
+            }
+          : null,
+      },
+    });
+  } catch (error) {
+    console.error("GET PRODUCT BY SLUG ERROR:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Server error",
     });
   }
 };
@@ -167,6 +421,13 @@ export const fetchProducts = async (req, res) => {
           required: false,
           attributes: ["image_path"],
         },
+
+        {
+          model: ProductSeoMeta,
+          as: "meta",
+          required: false,
+          attributes: ["meta_title", "meta_description", "meta_tags"],
+        },
       ],
       order: [["created_at", "DESC"]],
       limit: Number(perPage),
@@ -185,6 +446,192 @@ export const fetchProducts = async (req, res) => {
           ? getImageUrl(req, "products", image) // ✅ CORRECT NOW
           : null,
         gallery: undefined,
+      };
+    });
+
+    return res.json({
+      status: true,
+      data,
+      pagination: {
+        total: count,
+        page: Number(page),
+        perPage: Number(perPage),
+        totalPages: Math.ceil(count / perPage),
+      },
+    });
+  } catch (error) {
+    console.error("FETCH PRODUCTS ERROR:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Failed to fetch products",
+    });
+  }
+};
+
+export const fetchProducts_sssss_no_proze = async (req, res) => {
+  try {
+    const { search = "", page = 1, perPage = 10 } = req.query;
+    const offset = (page - 1) * perPage;
+
+    const where = {};
+    if (search) {
+      where.name = { [Op.like]: `%${search}%` };
+    }
+
+    const { rows, count } = await Product.findAndCountAll({
+      where,
+      include: [
+        {
+          model: Category,
+          as: "category",
+          attributes: ["id", "name"],
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["id", "name"],
+        },
+
+        /* ✅ SEO META */
+        {
+          model: ProductSeoMeta,
+          as: "meta",
+          required: false,
+          attributes: ["meta_title", "meta_description", "meta_tags"],
+        },
+
+        {
+          model: ProductImage,
+          as: "gallery",
+          where: { is_primary: true },
+          required: false,
+          attributes: ["image_path"],
+        },
+      ],
+      order: [["created_at", "DESC"]],
+      limit: Number(perPage),
+      offset: Number(offset),
+      distinct: true,
+    });
+
+    const data = rows.map((row) => {
+      const product = row.toJSON();
+
+      const image = product.gallery?.[0]?.image_path || null;
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+
+        category: product.category,
+        brand: product.brand,
+
+        image_url: image ? getImageUrl(req, "products", image) : null,
+
+        /* ✅ SEO META */
+        seo: product.meta
+          ? {
+              title: product.meta.meta_title,
+              description: product.meta.meta_description,
+              keywords: product.meta.meta_tags,
+            }
+          : null,
+      };
+    });
+
+    return res.json({
+      status: true,
+      data,
+      pagination: {
+        total: count,
+        page: Number(page),
+        perPage: Number(perPage),
+        totalPages: Math.ceil(count / perPage),
+      },
+    });
+  } catch (error) {
+    console.error("FETCH PRODUCTS ERROR:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Failed to fetch products",
+    });
+  }
+};
+
+export const fetchProducts_sss = async (req, res) => {
+  try {
+    const { search = "", page = 1, perPage = 10 } = req.query;
+    const offset = (page - 1) * perPage;
+
+    const where = {};
+    if (search) {
+      where.name = { [Op.like]: `%${search}%` };
+    }
+
+    const { rows, count } = await Product.findAndCountAll({
+      where,
+      include: [
+        {
+          model: Category,
+          as: "category",
+          attributes: ["id", "name"],
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["id", "name"],
+        },
+
+        /* ✅ SEO META */
+        {
+          model: ProductSeoMeta,
+          as: "meta",
+          required: false,
+          attributes: ["meta_title", "meta_description", "meta_tags"],
+        },
+
+        {
+          model: ProductImage,
+          as: "gallery",
+          where: { is_primary: true },
+          required: false,
+          attributes: ["image_path"],
+        },
+      ],
+      order: [["created_at", "DESC"]],
+      limit: Number(perPage),
+      offset: Number(offset),
+      distinct: true,
+    });
+
+    const data = rows.map((row) => {
+      const product = row.toJSON();
+      const image = product.gallery?.[0]?.image_path || null;
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+
+        // ✅ PRICE (THIS FIXES ₹0 ISSUE)
+        price: Number(product.price),
+        sale_price: product.sale_price ? Number(product.sale_price) : null,
+        mrp: product.mrp ? Number(product.mrp) : Number(product.price),
+
+        category: product.category,
+        brand: product.brand,
+
+        image_url: image ? getImageUrl(req, "products", image) : null,
+
+        /* ✅ SEO META */
+        seo: product.meta
+          ? {
+              title: product.meta.meta_title,
+              description: product.meta.meta_description,
+              keywords: product.meta.meta_tags,
+            }
+          : null,
       };
     });
 
@@ -970,10 +1417,610 @@ export const getPOSProducts = async (req, res) => {
   }
 };
 
+export const getEcomProducts = async (req, res) => {
+  try {
+    const { category = "all", brand = "all" } = req.query;
+
+    /* ================= BASE FILTER ================= */
+    const where = { status: "published" };
+
+    if (category !== "all") where.category_id = category;
+    if (brand !== "all") where.brand_id = brand;
+
+    /* ================= FETCH PRODUCTS ================= */
+    const products = await Product.findAll({
+      where,
+      attributes: ["id", "name", "base_price", "discount"],
+      include: [
+        {
+          model: Category,
+          as: "category",
+          attributes: ["id", "name"],
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["id", "name"],
+        },
+
+        /* ===== PRODUCT IMAGES ===== */
+        {
+          model: ProductImage,
+          as: "gallery",
+          required: false,
+          attributes: ["image_path", "is_primary"],
+        },
+
+        /* ===== PRODUCT VIDEO ===== */
+        {
+          model: ProductVideo,
+          as: "video",
+          required: false,
+          attributes: ["video_url"],
+        },
+
+        /* ===== TAX ===== */
+        {
+          model: ProductTaxAffinity,
+          as: "product_tax",
+          required: false,
+          attributes: ["gst_enabled", "gst_type", "gst_percent"],
+        },
+
+        /* ===== VARIANTS ===== */
+        {
+          model: ProductVariantCombination,
+          as: "variantCombinations",
+          required: true,
+          attributes: ["id", "sku", "extra_price", "quantity"],
+          include: [
+            {
+              model: ProductVariantCombinationValue,
+              as: "combination_values",
+              attributes: ["variation_value_id"],
+              include: [
+                {
+                  model: ProductVariationValue,
+                  as: "value",
+                  attributes: ["id", "value"],
+                },
+              ],
+            },
+            {
+              model: ProductVariantImage,
+              as: "images",
+              required: false,
+              attributes: ["image_path"],
+            },
+          ],
+        },
+      ],
+    });
+
+    /* ================= FORMAT RESPONSE ================= */
+    const data = products
+      .map((p) => {
+        const basePrice = Number(p.base_price) - Number(p.discount || 0);
+
+        const tax = p.product_tax?.[0] || null;
+
+        /* ===== PRODUCT IMAGES ===== */
+        const productImages =
+          p.gallery?.map((img) => ({
+            image_url: `${req.protocol}://${req.get("host")}/uploads/products/${
+              img.image_path
+            }`,
+            is_primary: img.is_primary,
+          })) || [];
+
+        /* ===== VARIATIONS ===== */
+        const variationsMap = new Map();
+        let minVariationPrice = null;
+
+        p.variantCombinations.forEach((vc) => {
+          if (vc.quantity <= 0) return;
+
+          const variantBase = basePrice + Number(vc.extra_price || 0);
+
+          const finalVariantPrice = applyTax(variantBase, tax);
+          const priceNumber = Number(finalVariantPrice.toFixed(2));
+
+          /* ✅ FIND LOWEST VARIATION PRICE */
+          if (minVariationPrice === null || priceNumber < minVariationPrice) {
+            minVariationPrice = priceNumber;
+          }
+
+          variationsMap.set(vc.id, {
+            id: vc.id,
+            sku: vc.sku,
+            name: vc.combination_values
+              ?.map((cv) => cv.value?.value)
+              .join(" / "),
+            price: priceNumber,
+            stock: vc.quantity,
+            images:
+              vc.images?.map((img) => ({
+                image_url: `${req.protocol}://${req.get(
+                  "host"
+                )}/uploads/variants/${img.image_path}`,
+              })) || [],
+          });
+        });
+
+        if (!variationsMap.size || minVariationPrice === null) {
+          return null;
+        }
+
+        /* ===== FINAL PRODUCT OBJECT ===== */
+        return {
+          id: p.id,
+          name: p.name,
+
+          /* ✅ LOWEST VARIATION PRICE */
+          price: minVariationPrice,
+
+          gst: tax
+            ? {
+                enabled: tax.gst_enabled,
+                type: tax.gst_type,
+                percent: Number(tax.gst_percent),
+              }
+            : null,
+
+          images: productImages,
+          video: p.video ? { video_url: p.video.video_url } : null,
+
+          image:
+            productImages.find((i) => i.is_primary)?.image_url ||
+            productImages[0]?.image_url ||
+            null,
+
+          variations: Array.from(variationsMap.values()),
+          category: p.category?.id,
+          brand: p.brand?.id,
+        };
+      })
+      .filter(Boolean);
+
+    return res.json({ status: true, data });
+  } catch (err) {
+    console.error("POS PRODUCTS ERROR:", err);
+    return res.status(500).json({
+      status: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const getProductsAll_working = async (req, res) => {
+  try {
+    const {
+      category = "all",
+      brands,
+      price_min,
+      price_max,
+      sortBy,
+      q,
+    } = req.query;
+
+    /* ================= BASE WHERE ================= */
+    const where = { status: "published" };
+
+    /* ================= CATEGORY (SLUG → ID) ================= */
+    if (category !== "all") {
+      const categoryRow = await Category.findOne({
+        where: { slug: category },
+        attributes: ["id"],
+      });
+
+      if (!categoryRow) {
+        return res.json({ status: true, data: [] });
+      }
+
+      where.category_id = categoryRow.id;
+    }
+
+    /* ================= BRAND (MULTI) ================= */
+    if (brands?.length) {
+      where.brand_id = {
+        [Op.in]: Array.isArray(brands) ? brands : [brands],
+      };
+    }
+
+    /* ================= SEARCH ================= */
+    if (q) {
+      where.name = {
+        [Op.like]: `%${q}%`,
+      };
+    }
+
+    /* ================= FETCH ================= */
+    const products = await Product.findAll({
+      where,
+      attributes: ["id", "name", "base_price", "discount", "slug"],
+      include: [
+        {
+          model: Category,
+          as: "category",
+          attributes: ["id", "name"],
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["id", "name"],
+        },
+        {
+          model: ProductImage,
+          as: "gallery",
+          required: false,
+          attributes: ["image_path", "is_primary"],
+        },
+        {
+          model: ProductVideo,
+          as: "video",
+          required: false,
+          attributes: ["video_url"],
+        },
+        {
+          model: ProductTaxAffinity,
+          as: "product_tax",
+          required: false,
+          attributes: ["gst_enabled", "gst_type", "gst_percent"],
+        },
+        {
+          model: ProductVariantCombination,
+          as: "variantCombinations",
+          required: true,
+          attributes: ["id", "sku", "extra_price", "quantity"],
+          include: [
+            {
+              model: ProductVariantCombinationValue,
+              as: "combination_values",
+              include: [
+                {
+                  model: ProductVariationValue,
+                  as: "value",
+                  attributes: ["value"],
+                },
+              ],
+            },
+            {
+              model: ProductVariantImage,
+              as: "images",
+              required: false,
+              attributes: ["image_path"],
+            },
+          ],
+        },
+
+        {
+          model: ProductSeoMeta,
+          as: "meta",
+          required: false,
+          attributes: ["meta_title", "meta_description", "meta_keywords"],
+        },
+      ],
+    });
+
+    /* ================= FORMAT RESPONSE ================= */
+    let data = products
+      .map((p) => {
+        const basePrice = Number(p.base_price) - Number(p.discount || 0);
+
+        const tax = p.product_tax?.[0] || null;
+
+        /* ===== PRODUCT IMAGES ===== */
+        const productImages =
+          p.gallery?.map((img) => ({
+            image_url: `${req.protocol}://${req.get("host")}/uploads/products/${
+              img.image_path
+            }`,
+            is_primary: img.is_primary,
+          })) || [];
+
+        /* ===== VARIATIONS & LOWEST PRICE ===== */
+        let minPrice = null;
+
+        const variations = p.variantCombinations
+          .filter((vc) => vc.quantity > 0)
+          .map((vc) => {
+            const variantBase = basePrice + Number(vc.extra_price || 0);
+
+            const finalPrice = applyTax(variantBase, tax);
+            const priceNumber = Number(finalPrice.toFixed(2));
+
+            if (minPrice === null || priceNumber < minPrice) {
+              minPrice = priceNumber;
+            }
+
+            return {
+              id: vc.id,
+              sku: vc.sku,
+              name: vc.combination_values
+                ?.map((cv) => cv.value?.value)
+                .join(" / "),
+              price: priceNumber,
+              stock: vc.quantity,
+              images:
+                vc.images?.map((img) => ({
+                  image_url: `${req.protocol}://${req.get(
+                    "host"
+                  )}/uploads/variants/${img.image_path}`,
+                })) || [],
+            };
+          });
+
+        if (!variations.length || minPrice === null) return null;
+
+        return {
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+
+          /* ✅ LOWEST VARIATION PRICE */
+          price: minPrice,
+
+          images: productImages,
+          image:
+            productImages.find((i) => i.is_primary)?.image_url ||
+            productImages[0]?.image_url ||
+            null,
+
+          variations,
+          category: p.category?.id,
+          brand: p.brand?.id,
+        };
+      })
+      .filter(Boolean);
+
+    /* ================= PRICE FILTER (ON FINAL PRICE) ================= */
+    if (price_min || price_max) {
+      const min = Number(price_min ?? 0);
+      const max = Number(price_max ?? Infinity);
+
+      data = data.filter((p) => p.price >= min && p.price <= max);
+    }
+
+    /* ================= SORT ================= */
+    if (sortBy === "price_low_high") {
+      data.sort((a, b) => a.price - b.price);
+    }
+
+    if (sortBy === "price_high_low") {
+      data.sort((a, b) => b.price - a.price);
+    }
+
+    return res.json({ status: true, data });
+  } catch (err) {
+    console.error("PRODUCT FILTER ERROR:", err);
+    return res.status(500).json({
+      status: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const getProductsAll = async (req, res) => {
+  try {
+    const {
+      category = "all",
+      brands,
+      price_min,
+      price_max,
+      sortBy,
+      q,
+    } = req.query;
+
+    /* ================= BASE WHERE ================= */
+    const where = { status: "published" };
+
+    /* ================= CATEGORY ================= */
+    if (category !== "all") {
+      const categoryRow = await Category.findOne({
+        where: { slug: category },
+        attributes: ["id"],
+      });
+
+      if (!categoryRow) {
+        return res.json({ status: true, data: [] });
+      }
+
+      where.category_id = categoryRow.id;
+    }
+
+    /* ================= BRAND FILTER ================= */
+    if (brands?.length) {
+      where.brand_id = {
+        [Op.in]: Array.isArray(brands) ? brands : [brands],
+      };
+    }
+
+    /* ================= SEARCH ================= */
+    if (q) {
+      where.name = {
+        [Op.like]: `%${q}%`,
+      };
+    }
+
+    /* ================= FETCH PRODUCTS ================= */
+    const products = await Product.findAll({
+      where,
+      attributes: ["id", "name", "slug", "base_price", "discount"],
+
+      include: [
+        {
+          model: Category,
+          as: "category",
+          attributes: ["id", "name", "slug"],
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["id", "name"],
+        },
+
+        /* ✅ SEO META */
+        {
+          model: ProductSeoMeta,
+          as: "meta",
+          required: false,
+          attributes: ["meta_title", "meta_description", "meta_tags"],
+        },
+
+        {
+          model: ProductImage,
+          as: "gallery",
+          required: false,
+          attributes: ["image_path", "is_primary"],
+        },
+        {
+          model: ProductVideo,
+          as: "video",
+          required: false,
+          attributes: ["video_url"],
+        },
+        {
+          model: ProductTaxAffinity,
+          as: "product_tax",
+          required: false,
+          attributes: ["gst_enabled", "gst_type", "gst_percent"],
+        },
+        {
+          model: ProductVariantCombination,
+          as: "variantCombinations",
+          required: true,
+          attributes: ["id", "sku", "extra_price", "quantity"],
+          include: [
+            {
+              model: ProductVariantCombinationValue,
+              as: "combination_values",
+              include: [
+                {
+                  model: ProductVariationValue,
+                  as: "value",
+                  attributes: ["value"],
+                },
+              ],
+            },
+            {
+              model: ProductVariantImage,
+              as: "images",
+              required: false,
+              attributes: ["image_path"],
+            },
+          ],
+        },
+      ],
+    });
+
+    /* ================= FORMAT RESPONSE ================= */
+    let data = products
+      .map((p) => {
+        const basePrice = Number(p.base_price) - Number(p.discount || 0);
+        const tax = p.product_tax?.[0] || null;
+
+        /* ===== IMAGES ===== */
+        const images =
+          p.gallery?.map((img) => ({
+            image_url: `${req.protocol}://${req.get("host")}/uploads/products/${
+              img.image_path
+            }`,
+            is_primary: img.is_primary,
+          })) || [];
+
+        /* ===== VARIANTS ===== */
+        let minPrice = null;
+
+        const variations = p.variantCombinations
+          .filter((vc) => vc.quantity > 0)
+          .map((vc) => {
+            const variantBase = basePrice + Number(vc.extra_price || 0);
+            const finalPrice = applyTax(variantBase, tax);
+            const price = Number(finalPrice.toFixed(2));
+
+            if (minPrice === null || price < minPrice) {
+              minPrice = price;
+            }
+
+            return {
+              id: vc.id,
+              sku: vc.sku,
+              name: vc.combination_values
+                ?.map((cv) => cv.value?.value)
+                .join(" / "),
+              price,
+              stock: vc.quantity,
+              images:
+                vc.images?.map((img) => ({
+                  image_url: `${req.protocol}://${req.get(
+                    "host"
+                  )}/uploads/variants/${img.image_path}`,
+                })) || [],
+            };
+          });
+
+        if (!variations.length || minPrice === null) return null;
+
+        return {
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+
+          price: minPrice,
+
+          images,
+          image:
+            images.find((i) => i.is_primary)?.image_url ||
+            images[0]?.image_url ||
+            null,
+
+          category: p.category?.id,
+          brand: p.brand?.id,
+
+          variations,
+
+          /* ✅ SEO META */
+          seo: p.meta
+            ? {
+                title: p.meta.meta_title,
+                description: p.meta.meta_description,
+                keywords: p.meta.meta_tags,
+              }
+            : null,
+        };
+      })
+      .filter(Boolean);
+
+    /* ================= PRICE FILTER ================= */
+    if (price_min || price_max) {
+      const min = Number(price_min ?? 0);
+      const max = Number(price_max ?? Infinity);
+
+      data = data.filter((p) => p.price >= min && p.price <= max);
+    }
+
+    /* ================= SORT ================= */
+    if (sortBy === "price_low_high") {
+      data.sort((a, b) => a.price - b.price);
+    }
+
+    if (sortBy === "price_high_low") {
+      data.sort((a, b) => b.price - a.price);
+    }
+
+    return res.json({ status: true, data });
+  } catch (err) {
+    console.error("PRODUCT FILTER ERROR:", err);
+    return res.status(500).json({
+      status: false,
+      message: "Server error",
+    });
+  }
+};
 export const getPOSCategories = async (req, res) => {
   try {
     const categories = await Category.findAll({
-      attributes: ["id", "name"], // ✅ REMOVE icon
+      attributes: ["id", "name", "slug"], // ✅ REMOVE icon
       order: [["name", "ASC"]],
     });
 

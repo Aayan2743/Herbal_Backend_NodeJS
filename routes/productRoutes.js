@@ -3,6 +3,8 @@ import {
   createProduct,
   fetchProducts,
   getProductById,
+  getProductBySlug,
+  getProductsAll,
   publishProduct,
   syncVariations,
   updateProduct,
@@ -31,6 +33,8 @@ import { saveProductSeo } from "../controllers/dashboard/productSeoSave.controll
 import { saveProductTaxAffinity } from "../controllers/dashboard/saveProductTaxAffinity.controller.js";
 import { uploadVariantImagesFile } from "../middleware/upload1.js";
 export const productRouter = express.Router();
+
+// dashboard/product
 
 productRouter.post(
   "/create-product",
@@ -68,7 +72,9 @@ productRouter.post("/create-seo/:productId", saveProductSeo);
 productRouter.post("/:productId/tax-affinity", saveProductTaxAffinity);
 productRouter.post("/:productId/publish", publishProduct);
 productRouter.get("/products", fetchProducts);
+productRouter.get("/products123", getProductsAll);
 productRouter.get("/fetch-products-by-id/:id", getProductById);
+productRouter.get("/products1/:slug", getProductBySlug);
 
 productRouter.post(
   "/product/:productId/images",

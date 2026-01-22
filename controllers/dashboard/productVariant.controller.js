@@ -78,7 +78,7 @@ export const uploadVariantImages = async (req, res) => {
 
       const image = await ProductVariantImage.create({
         variant_combination_id: variantCombinationId,
-        image_path: `uploads/variants/${webpName}`,
+        image_path: `${webpName}`,
       });
 
       savedImages.push(image);

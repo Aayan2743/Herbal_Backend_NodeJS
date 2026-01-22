@@ -42,10 +42,7 @@ const ProductTaxAffinity = sequelize.define(
   }
 );
 
-Product.hasOne(ProductTaxAffinity, {
-  foreignKey: "product_id",
-  as: "tax_affinity",
-});
+      
 
 ProductTaxAffinity.belongsTo(Product, {
   foreignKey: "product_id",

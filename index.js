@@ -5,6 +5,8 @@ import "./models/index.js";
 import router from "./routes/index.js";
 import { notFound } from "./middleware/404.js";
 import { errorHandler } from "./middleware/500.js";
+import path from "path";
+// import { sendMessage } from "./helpers/360messanger.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,9 +22,25 @@ app.use(
   })
 );
 
+// sendMessage(
+//   "9440161007",
+//   "Hello World!",
+//   "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Example",
+//   null,
+//   (err, result) => {
+//     if (err) {
+//       console.error("❌ Error:", err);
+//     } else {
+//       console.log("✅ Response:", result);
+//     }
+//   }
+// );
+
 // ✅ BODY PARSERS (CRITICAL)
 app.use(express.json()); // 🔥 THIS FIXES YOUR ISSUE
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
+
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/uploads", express.static("public/uploads"));
 
 // DB

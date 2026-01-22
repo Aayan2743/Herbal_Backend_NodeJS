@@ -2,10 +2,12 @@ import express from "express";
 import {
   createProduct,
   fetchProducts,
+  getEcomProducts,
   getPOSBrands,
   getPOSCategories,
   getPOSProducts,
   getProductById,
+  getProductsAll,
   publishProduct,
   syncVariations,
   updateProduct,
@@ -40,7 +42,11 @@ import {
 import tokenAuth from "../middleware/tokenAuth.js";
 export const posRouter = express.Router();
 
-posRouter.get("/products", getPOSProducts);
+// dashboard/pos
+//getPOSProducts , getEcomProducts
+posRouter.get("/products", getEcomProducts);
+// posRouter.get("/ecom-products", getEcomProducts);
+posRouter.get("/products-all", getProductsAll);
 posRouter.get("/categories", getPOSCategories);
 posRouter.get("/brands", getPOSBrands);
 

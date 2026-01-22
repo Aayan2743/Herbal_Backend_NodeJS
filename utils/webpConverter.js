@@ -1,25 +1,4 @@
-// import sharp from "sharp";
-// import path from "path";
-// import fs from "fs";
 
-// export const convertToWebp = async (inputPath, outputDir) => {
-//   // Ensure output directory exists
-//   if (!fs.existsSync(outputDir)) {
-//     fs.mkdirSync(outputDir, { recursive: true });
-//   }
-
-//   const filename = path.basename(inputPath, path.extname(inputPath));
-//   const outputPath = path.join(outputDir, `${filename}.webp`);
-
-//   await sharp(inputPath)
-//     .webp({ quality: 80 }) // adjust quality if needed
-//     .toFile(outputPath);
-
-//   // Optionally remove original file
-//   fs.unlinkSync(inputPath);
-
-//   return `${filename}.webp`;
-// };
 
 
 

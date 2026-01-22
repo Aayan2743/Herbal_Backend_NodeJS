@@ -11,6 +11,7 @@ const Product = sequelize.define(
     },
 
     name: DataTypes.STRING,
+    slug: DataTypes.STRING,
     category_id: DataTypes.BIGINT.UNSIGNED,
     brand_id: DataTypes.BIGINT.UNSIGNED,
 

@@ -4,9 +4,7 @@ import Product from "../models/Product.js";
 import { Op } from "sequelize";
 
 export const RegisterValidator = [
-  body("name")
-    .notEmpty()
-    .withMessage("Name field is required"),
+  body("name").notEmpty().withMessage("Name field is required"),
 
   body("email")
     .notEmpty()
@@ -26,7 +24,7 @@ export const RegisterValidator = [
     .withMessage("Phone number is required")
     .isNumeric()
     .withMessage("Phone must contain only numbers")
-    .isLength({ min: 10, max:10 })
+    .isLength({ min: 10, max: 12 })
     .withMessage("Phone number must be 10 digits")
     .custom(async (val) => {
       const user = await User.findOne({ where: { phone: val } });
@@ -51,10 +49,7 @@ export const UserLoginValidator = [
       const user = await User.findOne({
         where: {
           role: "user", // ✅ enforce role
-          [Op.or]: [
-            { email: val },
-            { phone: val },
-          ],
+          [Op.or]: [{ email: val }, { phone: val }],
         },
       });
 
@@ -71,7 +66,6 @@ export const UserLoginValidator = [
     .withMessage("Password must be 6–12 characters"),
 ];
 
-
 export const AdminLoginValidator = [
   body("username")
     .notEmpty()
@@ -80,10 +74,7 @@ export const AdminLoginValidator = [
       const user = await User.findOne({
         where: {
           role: "admin", // ✅ enforce role
-          [Op.or]: [
-            { email: val },
-            { phone: val },
-          ],
+          [Op.or]: [{ email: val }, { phone: val }],
         },
       });
 
