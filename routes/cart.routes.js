@@ -27,6 +27,8 @@ import {
   updateCoupon,
 } from "../controllers/dashboard/coupon.controller.js";
 import {
+  dashboardStats,
+  getUsersList,
   getWishlist,
   toggleWishlist,
 } from "../controllers/dashboard/wishlist.controller.js";
@@ -125,6 +127,9 @@ cartrouter.get("/get-my-orders/:id", tokenAuth, getMyOrderById);
 
 cartrouter.get("/get-wishlist", tokenAuth, getWishlist);
 cartrouter.post("/wishlist-toggle", tokenAuth, toggleWishlist);
+
+cartrouter.get("/dashboard/stats", dashboardStats);
+cartrouter.get("/users", getUsersList);
 
 // cartrouter.get("/get-orders", tokenAuth, getOrderDetails);
 // cartrouter.get("/get-order", tokenAuth, getOrders);

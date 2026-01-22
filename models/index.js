@@ -30,6 +30,16 @@ import Order from "./Order.js";
 import OrderItem from "./OrderItem.js";
 import Wishlist from "./Wishlist.js";
 
+User.hasMany(Order, {
+  foreignKey: "user_id",
+  as: "orders",
+});
+
+Order.belongsTo(User, {
+  foreignKey: "user_id",
+  as: "user",
+});
+
 User.hasMany(Wishlist, { foreignKey: "user_id", onDelete: "CASCADE" });
 Wishlist.belongsTo(User, { foreignKey: "user_id" });
 
