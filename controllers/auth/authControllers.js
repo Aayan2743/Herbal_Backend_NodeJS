@@ -26,66 +26,6 @@ async function encryptPhoneAsPassword(phone) {
   return hashPassword;
 }
 
-export const register_old = async (req, res) => {
-  const errors = validationResult(req);
-
-  if (!errors.isEmpty()) {
-    return res.status(422).json({
-      status: false,
-      message: errors.array()[0].msg,
-    });
-  }
-
-  const { name, email, phone, password } = req.body;
-
-  try {
-    // Check email exists
-    const emailExist = await User.findOne({ where: { email } });
-    if (emailExist) {
-      return res
-        .status(200)
-        .json({ status: false, message: "Email already exists" });
-    }
-
-    // Check phone exists
-    const phoneExist = await User.findOne({ where: { phone } });
-    if (phoneExist) {
-      return res
-        .status(200)
-        .json({ status: false, message: "Phone number already exists" });
-    }
-
-    // Hash password
-    const hashPassword = await bcrypt.hash(password, 10);
-
-    // Create user (role auto = user)
-    const addUser = await User.create({
-      name,
-      email,
-      phone,
-      password: hashPassword,
-    });
-
-    return res.status(201).json({
-      status: true,
-      message: "User registered successfully",
-      data: {
-        id: addUser.id,
-        name: addUser.name,
-        email: addUser.email,
-        phone: addUser.phone,
-        role: addUser.role, // will be "user"
-      },
-    });
-  } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: "Server error",
-      error: error.message,
-    });
-  }
-};
-
 export const register = async (req, res) => {
   const errors = validationResult(req);
 
@@ -495,6 +435,72 @@ export const updateProfile = async (req, res) => {
       status: false,
       message: "Server error",
       error: error.message,
+    });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.users.id;
+    const { current_password, new_password, confirm_new_password } = req.body;
+
+    if (!current_password || !new_password || !confirm_new_password) {
+      return res.status(400).json({
+        status: false,
+        message: "All fields are required",
+      });
+    }
+
+    if (new_password !== confirm_new_password) {
+      return res.status(400).json({
+        status: false,
+        message: "Passwords do not match",
+      });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({
+        status: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    // ✅ Sequelize way
+    const user = await User.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(current_password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        status: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+
+    await user.update({
+      password: hashedPassword,
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Something went wrong",
     });
   }
 };

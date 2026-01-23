@@ -9,6 +9,7 @@ import {
   sendOtp,
   verifyOtp,
   updateProfile,
+  changePassword,
 } from "../controllers/auth/authControllers.js";
 import {
   RegisterValidator,
@@ -32,5 +33,7 @@ authRouter.post(
   "/profile/update",
   tokenAuth,
   uploadCategory.single("profile_image"),
-  updateProfile
+  updateProfile,
 );
+
+authRouter.post("/profile/change-password", tokenAuth, changePassword);

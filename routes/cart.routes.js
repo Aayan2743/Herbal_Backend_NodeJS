@@ -32,6 +32,14 @@ import {
   getWishlist,
   toggleWishlist,
 } from "../controllers/dashboard/wishlist.controller.js";
+import {
+  getAccountSummary,
+  getOnlineOrderDetail,
+  getOnlineOrders,
+  getOnlineOrderStats,
+  getOrderStatusCounts,
+  updateOrderStatus,
+} from "../controllers/dashboard/cart.Controller.js";
 
 export const cartrouter = express.Router();
 
@@ -130,6 +138,15 @@ cartrouter.post("/wishlist-toggle", tokenAuth, toggleWishlist);
 
 cartrouter.get("/dashboard/stats", dashboardStats);
 cartrouter.get("/users", getUsersList);
+
+cartrouter.get("/online-orders", getOnlineOrders);
+cartrouter.get("/online-orders/stats", getOnlineOrderStats);
+
+cartrouter.get("/online-orders/status-counts", getOrderStatusCounts);
+cartrouter.get("/online-orders/:id", getOnlineOrderDetail);
+
+cartrouter.put("/online-orders/:id/status", updateOrderStatus);
+cartrouter.get("/account/summary", tokenAuth, getAccountSummary);
 
 // cartrouter.get("/get-orders", tokenAuth, getOrderDetails);
 // cartrouter.get("/get-order", tokenAuth, getOrders);
